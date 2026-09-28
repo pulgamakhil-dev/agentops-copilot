@@ -1,1676 +1,584 @@
-\# AgentOps Copilot
+# AgentOps Copilot
 
+**Production-oriented Agentic AI system for data operations, incident investigation, and controlled remediation.**
 
+AgentOps Copilot is a multi-agent system I built to investigate data pipeline failures, retrieve relevant operational knowledge, and safely coordinate remediation actions.
 
-\*\*Production-oriented Agentic AI control plane for data operations, incident investigation, and governed remediation.\*\*
+The main idea behind the project is simple: an LLM can help investigate an incident and recommend what to do, but it should not have unrestricted permission to make infrastructure changes.
 
+Operational actions therefore go through deterministic authorization, human approval, execution, persistence, and auditing outside the LLM.
 
+**What it does**
 
-AgentOps Copilot is a multi-agent operational assistant designed to investigate data pipeline failures, correlate runtime evidence with operational runbooks, recommend remediation steps, and coordinate controlled actions through human approval and RBAC-enforced execution.
+* Investigates failed data pipelines using runtime evidence.
+* Routes requests to specialized agents instead of giving one agent access to every tool.
+* Uses FAISS-based RAG to retrieve relevant operational runbooks.
+* Combines monitoring evidence and runbook context during incident investigation.
+* Keeps investigation workflows read-only.
+* Separates recommendations from operational actions.
+* Requires explicit action intent before creating an approval request.
+* Requires human approval for controlled actions.
+* Enforces RBAC in application code rather than through prompts.
+* Prevents execution while an approval is pending or rejected.
+* Tracks requester, reviewer, and executor identities separately.
+* Persists approvals, executions, and audit events.
+* Uses a simulated executor by default so the complete workflow can be tested safely.
+* Includes automated tests, evaluation datasets, Docker support, migrations, and GitHub Actions CI.
 
-
-
-The system is intentionally designed around a core production principle:
-
-
-
-> \*\*LLMs can investigate and recommend. Operational changes must cross deterministic authorization and approval boundaries.\*\*
-
-
-
-Rather than exposing infrastructure directly to an autonomous agent, AgentOps Copilot separates reasoning, authorization, approval, execution, persistence, and auditing into independent layers.
-
-
-
-\---
-
-
-
-\## Why This Exists
-
-
-
-Operational incidents rarely live in one system.
-
-
-
-An engineer investigating a failed data pipeline may need to:
-
-
-
-1\. Inspect recent pipeline runs.
-
-2\. Identify the failed execution and error.
-
-3\. Query operational metadata.
-
-4\. Search runbooks for known remediation procedures.
-
-5\. Correlate evidence across multiple sources.
-
-6\. Determine whether remediation is appropriate.
-
-7\. Request an operational action.
-
-8\. Obtain approval from an authorized reviewer.
-
-9\. Execute the approved action.
-
-10\. Preserve an audit trail.
-
-
-
-AgentOps Copilot models this workflow as a governed multi-agent system instead of allowing a single LLM to reason and execute infrastructure actions directly.
-
-
-
-\---
-
-
-
-\ Architecture
-
-
+**Architecture**
 
 ```text
-
                          ┌───────────────────────┐
-
                          │      Client / API     │
-
                          └───────────┬───────────┘
-
                                      │
-
                                      ▼
-
                          ┌───────────────────────┐
-
                          │      FastAPI Layer    │
-
                          │ Auth / Request Context│
-
                          └───────────┬───────────┘
-
                                      │
-
                                      ▼
-
                          ┌───────────────────────┐
-
                          │      Supervisor       │
-
                          │ Intent Classification │
-
-                         │   Agent Routing       │
-
+                         │     Agent Routing     │
                          └───────────┬───────────┘
-
                                      │
-
              ┌───────────────────────┼───────────────────────┐
-
              │                       │                       │
-
              ▼                       ▼                       ▼
-
-      ┌─────────────┐         ┌─────────────┐        ┌─────────────┐
-
-      │ Monitoring  │         │     SQL     │        │     RAG     │
-
-      │    Agent    │         │    Agent    │        │    Agent    │
-
-      └──────┬──────┘         └──────┬──────┘        └──────┬──────┘
-
+      ┌─────────────┐         ┌─────────────┐         ┌─────────────┐
+      │ Monitoring  │         │     SQL     │         │     RAG     │
+      │    Agent    │         │    Agent    │         │    Agent    │
+      └──────┬──────┘         └──────┬──────┘         └──────┬──────┘
              │                       │                       │
-
-             │                       │                FAISS / Runbooks
-
-             │                       │                       │
-
              └──────────────┬────────┴───────────────────────┘
-
                             │
-
                             ▼
-
                   ┌─────────────────────┐
-
                   │ Investigation Agent │
-
                   │ Evidence Synthesis  │
-
                   │ Read-Only Boundary  │
-
                   └──────────┬──────────┘
-
                              │
-
                              ▼
-
                        Recommendation
-
                              │
-
-                  Explicit action request
-
+                   Explicit action request
                              │
-
                              ▼
-
                     ┌────────────────┐
-
                     │  Action Agent  │
-
                     └───────┬────────┘
-
                             │
-
                             ▼
-
                   ┌─────────────────────┐
-
                   │ Approval Request    │
-
-                  │     PENDING         │
-
+                  │       PENDING       │
                   └──────────┬──────────┘
-
                              │
-
-                      Human Reviewer
-
+                       Human Reviewer
                              │
-
                              ▼
-
                   ┌─────────────────────┐
-
                   │ Authorization / RBAC│
-
                   └──────────┬──────────┘
-
                              │
-
-                         APPROVED
-
+                          APPROVED
                              │
-
                              ▼
-
                   ┌─────────────────────┐
-
                   │ Execution Service   │
-
                   │ Executor Abstraction│
-
                   └──────────┬──────────┘
-
                              │
-
-                   ┌─────────┴─────────┐
-
-                   ▼                   ▼
-
+                    ┌────────┴────────┐
+                    ▼                 ▼
              Simulated Executor   Airflow Executor
-
                                       │
-
                                       ▼
-
                               External Platform
 
-
-
-          Approval + Execution + Audit State
-
-                       │
-
-                       ▼
-
-                SQLite / Persistence
-
+              Approval + Execution + Audit State
+                             │
+                             ▼
+                    SQLite / Persistence
 ```
 
+**Agents**
 
+* **Supervisor** — classifies requests and routes them to the appropriate agent or workflow.
+* **Monitoring Agent** — retrieves pipeline status, failed runs, error information, and operational evidence.
+* **SQL Agent** — provides controlled access to structured operational data.
+* **RAG Agent** — retrieves relevant troubleshooting information from indexed runbooks.
+* **Investigation Agent** — combines monitoring evidence with runbook knowledge and produces a read-only incident assessment.
+* **Action Agent** — handles explicit operational action requests and creates approval requests when required.
 
-\---
+Keeping these responsibilities separate makes the system easier to test and prevents a general-purpose LLM from receiving unnecessary operational access.
 
+**Incident workflow**
 
-
-\ Agent Responsibilities
-
-
-
-\ Supervisor
-
-
-
-The Supervisor acts as the orchestration layer.
-
-
-
-It classifies incoming operational requests and routes them to the appropriate specialized capability instead of exposing every tool to a single general-purpose agent.
-
-
-
-Responsibilities include:
-
-
-
-\* intent classification
-
-\* agent routing
-
-\* investigation routing
-
-\* action-request detection
-
-\* separation of informational and operational workflows
-
-
-
-This reduces unnecessary tool exposure and makes agent behavior easier to test and reason about.
-
-
-
-\### Monitoring Agent
-
-
-
-Retrieves operational evidence about pipeline execution.
-
-
-
-Typical responsibilities:
-
-
-
-\* inspect recent pipeline runs
-
-\* identify failures
-
-\* surface error codes and failure context
-
-\* retrieve pipeline status information
-
-\* provide evidence to downstream investigation
-
-
-
-Monitoring logic is kept separate from final incident reasoning.
-
-
-
-\### SQL Agent
-
-
-
-Provides structured access to operational data through controlled SQL tooling.
-
-
-
-The SQL capability is isolated behind dedicated tools rather than allowing arbitrary database behavior directly from the supervisor.
-
-
-
-\### RAG Agent
-
-
-
-Retrieves operational knowledge from runbooks.
-
-
-
-Current runbook examples include:
-
-
-
-\* API timeout remediation
-
-\* schema drift handling
-
-\* Spark memory troubleshooting
-
-
-
-Runbooks are embedded and indexed using FAISS.
-
-
-
-The RAG layer provides evidence to the reasoning workflow rather than treating retrieved documents as executable instructions.
-
-
-
-\Investigation Agent
-
-
-
-Combines runtime evidence with relevant runbook knowledge.
-
-
-
-The investigation path is deliberately \*\*read-only\*\*.
-
-
-
-It can:
-
-
-
-\* inspect monitoring evidence
-
-\* retrieve runbook context
-
-\* correlate incident information
-
-\* identify likely causes
-
-\* recommend remediation
-
-
-
-It cannot approve or execute infrastructure changes.
-
-
-
-The optimized investigation path performs direct runbook retrieval followed by a consolidated LLM synthesis step, avoiding unnecessary nested agent loops during incident analysis.
-
-
-
-\ Action Agent
-
-
-
-Handles explicit operational action requests.
-
-
-
-An investigation recommendation does not automatically become an action.
-
-
-
-The user must explicitly request the operational change before the system creates an approval request.
-
-
-
-Example:
-
-
+A typical investigation looks like this:
 
 ```text
-
-Investigate why customer\_ingestion failed.
-
+Incident Query
+     │
+     ▼
+Supervisor
+     │
+     ▼
+Investigation Agent
+     │
+     ├── Monitoring Evidence
+     │
+     └── Runbook Retrieval
+     │
+     ▼
+Read-Only Recommendation
 ```
 
+The investigation stops at a recommendation.
 
-
-remains read-only.
-
-
-
-Whereas:
-
-
+For example:
 
 ```text
-
-Request a rerun of customer\_ingestion.
-
+Investigate why customer_ingestion failed.
 ```
 
+does not create or execute an operational action.
 
-
-enters the controlled action workflow.
-
-
-
-\---
-
-
-
-\ Governed Action Lifecycle
-
-
-
-Operational actions move through an explicit state transition:
-
-
+A separate explicit request such as:
 
 ```text
+Request a rerun of customer_ingestion.
+```
 
-REQUEST
+can enter the controlled action workflow.
 
-   │
+**Approval and execution**
 
-   ▼
+Operational actions follow a deterministic lifecycle:
 
+```text
+ACTION REQUESTED
+       │
+       ▼
 PENDING APPROVAL
-
-   │
-
-   ├──────────────► REJECTED
-
-   │
-
-   ▼
-
-APPROVED
-
-   │
-
-   ▼
-
+       │
+       ├──────────────► REJECTED
+       │
+       ▼
+    APPROVED
+       │
+       ▼
 EXECUTION STARTED
-
-   │
-
-   ▼
-
+       │
+       ▼
 EXECUTION COMPLETED / FAILED
-
 ```
 
+Important controls include:
 
+* The requester cannot silently turn an investigation into an execution.
+* Approval state is stored independently of the LLM conversation.
+* Reviewers must have the required permission.
+* Requester and reviewer separation is enforced.
+* Execution is blocked unless the approval is in the required state.
+* Authorization decisions happen in application code.
+* Execution results are persisted.
+* Security-sensitive lifecycle events are written to the audit trail.
 
-Execution is rejected unless the associated approval is in the required state.
+**RBAC and identity**
 
+Development roles include:
 
+* `viewer`
+* `operator`
+* `approver`
+* `admin`
 
-This control exists outside LLM reasoning.
+Permissions control capabilities such as:
 
+* Requesting an operational action.
+* Approving an action.
+* Executing an approved operation.
+* Viewing execution history.
+* Accessing audit history.
 
-
-The model therefore cannot bypass the approval workflow by generating different text or attempting to invoke an execution path directly.
-
-
-
-\---
-
-
-
-\ Human-in-the-Loop Approval
-
-
-
-AgentOps Copilot implements separation between:
-
-
-
-\* requester
-
-\* reviewer
-
-\* executor
-
-
-
-Approval requests persist independently of the conversation that created them.
-
-
-
-A reviewer must possess the appropriate permission before making an approval decision.
-
-
-
-The approval layer also protects against identity spoofing and requester self-approval.
-
-
-
-This creates a deterministic control boundary between AI-generated recommendations and operational execution.
-
-
-
-\---
-
-
-
-\## RBAC
-
-
-
-Authorization is enforced by application code rather than model prompts.
-
-
-
-Supported development roles include:
-
-
+For local development, identity is passed through:
 
 ```text
-
-viewer
-
-operator
-
-approver
-
-admin
-
-```
-
-
-
-Permissions govern capabilities such as:
-
-
-
-\* requesting actions
-
-\* approving actions
-
-\* executing approved operations
-
-\* viewing execution history
-
-\* accessing audit history
-
-
-
-The current development environment uses identity headers:
-
-
-
-```text
-
 X-User-ID
-
 X-Username
-
 X-User-Roles
-
 ```
 
+This is intentionally a development mechanism.
 
+A production deployment should replace these headers with verified enterprise identity such as OIDC/OAuth2 and signed JWT validation at the application or gateway boundary.
 
-These headers are intended for local development and testing.
+**RAG and runbooks**
 
+Operational runbooks are stored in:
 
+```text
+data/runbooks/
+```
 
-A production deployment should replace this mechanism with verified enterprise identity such as OIDC/OAuth2/JWT validation at the application or gateway boundary.
+Current examples cover:
 
+* API timeout remediation.
+* Schema drift handling.
+* Spark memory troubleshooting.
 
+The retrieval flow is:
 
-\---
+```text
+Runbooks
+   │
+   ▼
+Document Loading
+   │
+   ▼
+Chunking
+   │
+   ▼
+Embeddings
+   │
+   ▼
+FAISS
+   │
+   ▼
+Semantic Retrieval
+   │
+   ▼
+Investigation Context
+```
 
+The FAISS index is generated at runtime and intentionally excluded from source control.
 
+Retrieved runbook content is treated as evidence for investigation rather than as executable instructions.
 
-\## Execution Boundary
+**Execution model**
 
-
-
-Execution is abstracted behind an executor interface.
-
-
+Execution is hidden behind an executor abstraction.
 
 Current implementations include:
 
-
-
-```text
-
-SimulatedExecutor
-
-AirflowExecutor
-
-```
-
-
+* `SimulatedExecutor`
+* `AirflowExecutor`
 
 The default development configuration uses:
 
+```text
+EXECUTOR_PROVIDER=simulated
+```
 
+This lets the complete authorization and execution lifecycle run without changing production infrastructure.
+
+A successful simulated execution can therefore validate:
+
+* Approval enforcement.
+* RBAC.
+* Requester/reviewer separation.
+* Executor authorization.
+* Execution persistence.
+* Audit events.
+
+without requiring production credentials.
+
+**Audit trail**
+
+The application records lifecycle events such as:
+
+* `ACTION_REQUESTED`
+* `APPROVAL_GRANTED`
+* `EXECUTION_STARTED`
+* `EXECUTION_COMPLETED`
+
+Audit records can include:
+
+* Actor.
+* Action.
+* Resource.
+* Approval ID.
+* Execution ID.
+* Status or outcome.
+* Timestamp.
+
+This provides traceability from the original action request through approval and execution.
+
+**Tech stack**
+
+* Python
+* FastAPI
+* LangGraph
+* LangChain
+* Ollama
+* Qwen 2.5
+* FAISS
+* Sentence Transformers
+* SQLite
+* Alembic
+* Pydantic
+* Pytest
+* Docker
+* Docker Compose
+* GitHub Actions
+
+**Project structure**
 
 ```text
-
-EXECUTOR\_PROVIDER=simulated
-
-```
-
-
-
-A successful execution therefore confirms the complete authorization and execution workflow without changing production infrastructure.
-
-
-
-Example simulated result:
-
-
-
-```json
-
-{
-
-  "success": true,
-
-  "action\_name": "rerun\_pipeline",
-
-  "resource\_name": "customer\_ingestion",
-
-  "status": "simulated",
-
-  "message": "Pipeline rerun simulated successfully for customer\_ingestion. No production action was executed."
-
-}
-
-```
-
-
-
-This boundary makes it possible to test agent behavior, approval logic, RBAC, persistence, and auditability without giving the development environment production credentials.
-
-
-
-\---
-
-
-
-\ Auditability
-
-
-
-Security-sensitive lifecycle transitions generate persistent audit events.
-
-
-
-Examples include:
-
-
-
-```text
-
-ACTION\_REQUESTED
-
-APPROVAL\_GRANTED
-
-EXECUTION\_STARTED
-
-EXECUTION\_COMPLETED
-
-```
-
-
-
-Audit records capture relevant context such as:
-
-
-
-\* actor
-
-\* action
-
-\* resource
-
-\* approval identifier
-
-\* execution identifier
-
-\* status/outcome
-
-\* timestamp
-
-
-
-Audit history can be filtered by attributes including actor, event type, approval ID, execution ID, and resource.
-
-
-
-This provides traceability across the complete operational lifecycle.
-
-
-
-\---
-
-
-
-\## Persistence
-
-
-
-SQLite is used for local persistence.
-
-
-
-Persistent domain state includes:
-
-
-
-\* pipeline execution information
-
-\* approval requests
-
-\* execution records
-
-\* audit events
-
-\* authenticated execution identity
-
-
-
-Database schema evolution is managed through Alembic migrations.
-
-
-
-The persistence layer is intentionally separated from agent reasoning so operational state does not depend on LLM conversation memory.
-
-
-
-\---
-
-
-
-\## RAG Pipeline
-
-
-
-Operational documentation is stored under:
-
-
-
-```text
-
-data/runbooks/
-
-```
-
-
-
-Current examples:
-
-
-
-```text
-
-api\_timeout.md
-
-schema\_drift.md
-
-spark\_memory.md
-
-```
-
-
-
-The ingestion pipeline:
-
-
-
-```text
-
-Runbooks
-
-   │
-
-   ▼
-
-Document Loading
-
-   │
-
-   ▼
-
-Chunking
-
-   │
-
-   ▼
-
-Embedding
-
-   │
-
-   ▼
-
-FAISS Index
-
-   │
-
-   ▼
-
-Semantic Retrieval
-
-   │
-
-   ▼
-
-Investigation Context
-
-```
-
-
-
-Generated FAISS artifacts are intentionally excluded from source control and can be rebuilt from the source runbooks.
-
-
-
-\---
-
-
-
-\ Evaluation
-
-
-
-The repository includes an evaluation harness rather than relying exclusively on manual prompt testing.
-
-
-
-Evaluation datasets cover areas including:
-
-
-
-```text
-
-evals/datasets/
-
-├── action\_safety\_cases.json
-
-├── rag\_cases.json
-
-├── rag\_single\_test.json
-
-└── routing\_cases.json
-
-```
-
-
-
-Evaluation runners cover:
-
-
-
-\* routing behavior
-
-\* RAG quality
-
-\* groundedness
-
-\* judge-based groundedness review
-
-\* tool-health enrichment
-
-
-
-Generated evaluation outputs are excluded from Git because they are runtime artifacts.
-
-
-
-This keeps evaluation methodology and reproducible datasets versioned without accumulating generated result files in the repository.
-
-
-
-\---
-
-
-
-\## Testing Strategy
-
-
-
-The automated suite currently contains \*\*80 tests\*\* covering unit and integration behavior.
-
-
-
-Major coverage areas include:
-
-
-
-\ Security
-
-
-
-\* authentication requirements
-
-\* invalid role rejection
-
-\* permission enforcement
-
-\* reviewer identity protection
-
-\* requester/reviewer separation
-
-\* action authorization
-
-\* audit endpoint authorization
-
-
-
-\### Agent Behavior
-
-
-
-\* supervisor routing
-
-\* action-intent detection
-
-\* investigation routing
-
-\* monitoring evidence retrieval
-
-\* RAG integration
-
-\* read-only investigation guarantees
-
-
-
-\ Approval \& Execution
-
-
-
-\* approval persistence
-
-\* approval separation
-
-\* execution authorization
-
-\* execution history
-
-\* authenticated executor identity
-
-\* blocked execution before approval
-
-
-
-\### Audit Lifecycle
-
-
-
-\* action-request events
-
-\* approval events
-
-\* execution-start events
-
-\* execution-completion events
-
-\* rejected approvals
-
-\* failed executions
-
-\* audit filtering and pagination
-
-
-
-\ End-to-End Workflow
-
-
-
-Integration tests validate the controlled path from incident investigation through authorized execution.
-
-
-
-Run the suite with:
-
-
-
-```bash
-
-python -m pytest tests/ -q
-
-```
-
-
-
-Current validated result:
-
-
-
-```text
-
-80 passed
-
-```
-
-
-
-\---
-
-
-
-\ Validated End-to-End Scenario
-
-
-
-The project has been exercised through the live Docker API using the following workflow:
-
-
-
-```text
-
-Incident Query
-
-     │
-
-     ▼
-
-Supervisor
-
-     │
-
-     ▼
-
-Investigation Agent
-
-     │
-
-     ├── Monitoring Evidence
-
-     │
-
-     └── Runbook Retrieval
-
-     │
-
-     ▼
-
-Read-Only Recommendation
-
-     │
-
-     ▼
-
-Explicit Action Request
-
-     │
-
-     ▼
-
-Pending Approval
-
-     │
-
-     ├── Attempted early execution → HTTP 403
-
-     │
-
-     ▼
-
-Separate Reviewer Approval
-
-     │
-
-     ▼
-
-Authorized Execution
-
-     │
-
-     ▼
-
-Simulated Executor
-
-     │
-
-     ▼
-
-Execution Record
-
-     │
-
-     ▼
-
-Audit Trail
-
-```
-
-
-
-The validation specifically confirmed that execution attempted while an approval remained `pending` was rejected.
-
-
-
-After approval by a separate authorized reviewer, the same action was successfully processed through the simulated executor and persisted to execution history.
-
-
-
-\---
-
-
-
-\ Technology Stack
-
-
-
-| Area                | Technology              |
-
-| ------------------- | ----------------------- |
-
-| API                 | FastAPI                 |
-
-| Agent orchestration | LangGraph               |
-
-| LLM integration     | LangChain               |
-
-| Local LLM           | Ollama / Qwen 2.5       |
-
-| Retrieval           | FAISS                   |
-
-| Embeddings          | Sentence Transformers   |
-
-| Database            | SQLite                  |
-
-| Migrations          | Alembic                 |
-
-| Validation          | Pydantic                |
-
-| Testing             | Pytest                  |
-
-| Containerization    | Docker / Docker Compose |
-
-| CI                  | GitHub Actions          |
-
-| Language            | Python                  |
-
-
-
-\---
-
-
-
-\ Repository Structure
-
-
-
-```text
-
-agentops\_copilot/
-
+agentops_copilot/
 │
-
 ├── app/
-
 │   ├── agents/
-
 │   │   ├── supervisor.py
-
-│   │   ├── monitoring\_agent.py
-
-│   │   ├── sql\_agent.py
-
-│   │   ├── rag\_agent.py
-
-│   │   ├── investigation\_agent.py
-
-│   │   └── action\_agent.py
-
+│   │   ├── monitoring_agent.py
+│   │   ├── sql_agent.py
+│   │   ├── rag_agent.py
+│   │   ├── investigation_agent.py
+│   │   └── action_agent.py
 │   │
-
 │   ├── api/
-
 │   │   ├── agent.py
-
 │   │   ├── approvals.py
-
 │   │   ├── audit.py
-
 │   │   ├── executions.py
-
 │   │   ├── health.py
-
 │   │   └── monitoring.py
-
 │   │
-
 │   ├── core/
-
 │   │   ├── auth.py
-
 │   │   ├── authorization.py
-
 │   │   ├── permissions.py
-
 │   │   ├── guardrails.py
-
 │   │   ├── security.py
-
 │   │   └── config.py
-
 │   │
-
 │   ├── executors/
-
 │   │   ├── base.py
-
 │   │   ├── factory.py
-
 │   │   ├── simulated.py
-
 │   │   └── airflow.py
-
 │   │
-
 │   ├── rag/
-
 │   │   ├── ingest.py
-
 │   │   └── retriever.py
-
 │   │
-
 │   ├── services/
-
 │   ├── tools/
-
 │   ├── db/
-
 │   ├── models/
-
 │   └── main.py
-
 │
-
 ├── data/
-
 │   ├── runbooks/
-
-│   └── pipeline\_runs.csv
-
+│   └── pipeline_runs.csv
 │
-
 ├── evals/
-
 │   ├── datasets/
-
 │   └── runners/
-
 │
-
 ├── migrations/
-
 ├── tests/
-
 │   ├── unit/
-
 │   └── integration/
-
 │
-
 ├── .github/workflows/
-
 ├── Dockerfile
-
 ├── docker-compose.yml
-
 ├── alembic.ini
-
 ├── requirements.txt
-
 └── README.md
-
 ```
 
+**Running locally**
 
+Prerequisites:
 
-\---
+* Python
+* Docker Desktop
+* Docker Compose
+* Ollama
 
-
-
-\ Local Development
-
-
-
-\### Prerequisites
-
-
-
-\* Python
-
-\* Docker Desktop
-
-\* Docker Compose
-
-\* Ollama
-
-
-
-The default model configuration uses:
-
-
+The default local model is:
 
 ```text
-
 qwen2.5:3b
-
 ```
 
-
-
-Pull the model:
-
-
+Pull it with:
 
 ```bash
-
 ollama pull qwen2.5:3b
-
 ```
 
+Create the environment file.
 
-
-Create the local environment file:
-
-
-
-```bash
-
-cp .env.example .env
-
-```
-
-
-
-On Windows CMD:
-
-
+Windows CMD:
 
 ```cmd
-
 copy .env.example .env
-
 ```
 
+Build the runbook index:
 
-
-Build the RAG index:
-
-
-
-```bash
-
+```cmd
 python -m app.rag.ingest
-
 ```
 
+Seed the local pipeline data:
 
-
-Seed local pipeline data:
-
-
-
-```bash
-
-python -m app.db.seed\_data
-
+```cmd
+python -m app.db.seed_data
 ```
-
-
 
 Start the application:
 
-
-
-```bash
-
+```cmd
 docker compose up -d --build
-
 ```
-
-
-
-Verify readiness:
-
-
-
-```text
-
-GET /health/ready
-
-```
-
-
 
 The API is exposed locally on port `8000`.
 
-
-
-FastAPI's generated API documentation is available through the application while it is running.
-
-
-
-\---
-
-
-
-\ Docker Runtime
-
-
-
-The Docker environment persists application state using a mounted storage volume.
-
-
-
-The application container connects to the host Ollama service using:
-
-
+Check readiness with:
 
 ```text
-
-http://host.docker.internal:11434
-
+GET /health/ready
 ```
 
-
-
-Runtime-generated state such as databases, logs, vector indexes, caches, and local environment secrets is excluded from source control.
-
-
-
-\---
-
-
-
-\## Security Model
-
-
-
-The project follows several defensive design principles:
-
-
-
-\*\*Least privilege\*\*
-
-Agents receive specialized responsibilities rather than unrestricted operational access.
-
-
-
-\*\*Read-only investigation\*\*
-
-Incident reasoning cannot silently become infrastructure execution.
-
-
-
-\*\*Explicit action intent\*\*
-
-Recommendations and questions do not create operational actions.
-
-
-
-\*\*Human approval\*\*
-
-Sensitive operations require an independent approval transition.
-
-
-
-\*\*Separation of duties\*\*
-
-Requester, reviewer, and executor identities are independently tracked.
-
-
-
-\*\*Deterministic authorization\*\*
-
-RBAC decisions occur in application code rather than LLM prompts.
-
-
-
-\*\*Execution gating\*\*
-
-Pending or rejected actions cannot be executed.
-
-
-
-\*\*Persistent auditing\*\*
-
-Security-sensitive lifecycle transitions are recorded outside the conversation.
-
-
-
-\*\*Replaceable execution providers\*\*
-
-Infrastructure integrations sit behind executor abstractions.
-
-
-
-\---
-
-
-
-\ Production Hardening
-
-
-
-This repository demonstrates the application architecture and control model. A production deployment would additionally require environment-specific infrastructure controls such as:
-
-
-
-\* enterprise OIDC/OAuth2 identity integration
-
-\* signed JWT validation
-
-\* managed relational database
-
-\* centralized secret management
-
-\* TLS termination
-
-\* network-level service isolation
-
-\* production observability and alerting
-
-\* distributed tracing
-
-\* rate limiting
-
-\* managed vector infrastructure where required
-
-\* production Airflow credentials and scoped service identities
-
-\* backup and disaster-recovery policies
-
-\* centralized immutable audit storage
-
-\* deployment-specific policy enforcement
-
-
-
-The local header-based authentication and simulated executor are deliberate development boundaries and should not be interpreted as production identity or infrastructure configuration.
-
-
-
-\---
-
-
-
-\ Design Principles
-
-
-
-AgentOps Copilot is built around five principles:
-
-
-
-1\. \*\*Reasoning is not authorization.\*\*
-
-2\. \*\*Recommendations are not actions.\*\*
-
-3\. \*\*Operational execution requires deterministic controls.\*\*
-
-4\. \*\*AI workflows must be observable, testable, and auditable.\*\*
-
-5\. \*\*Infrastructure integrations should be replaceable without redesigning agent reasoning.\*\*
-
-
-
-These boundaries allow agentic systems to participate in operational workflows without giving an LLM unrestricted control over production infrastructure.
-
-
-
-\---
-
-
-
-\ Current Status
-
-
-
-Implemented and validated:
-
-
-
-\* Multi-agent routing
-
-\* Monitoring Agent
-
-\* SQL Agent
-
-\* RAG Agent
-
-\* Investigation Agent
-
-\* Action Agent
-
-\* FAISS runbook retrieval
-
-\* Explicit action-intent detection
-
-\* Human-in-the-loop approval
-
-\* RBAC
-
-\* Requester/reviewer separation
-
-\* Execution gating
-
-\* Simulated execution
-
-\* Airflow executor abstraction
-
-\* Execution persistence
-
-\* Audit lifecycle
-
-\* Alembic migrations
-
-\* Evaluation framework
-
-\* Docker deployment
-
-\* GitHub Actions CI
-
-\* Unit and integration testing
-
-\* End-to-end controlled remediation workflow
-
-
-
-\*\*Automated test suite: 80 passing tests.\*\*
-
-
-
-\---
-
-
-
-\ Disclaimer
-
-
-
-AgentOps Copilot is a portfolio/reference implementation demonstrating production-oriented patterns for governed Agentic AI operations.
-
-
-
-The default executor is intentionally configured for simulation. No production infrastructure action is performed unless an environment is explicitly configured with an appropriate external executor and its required security controls.
-
-
-
+**Testing**
+
+The project currently has **80 automated tests** covering both unit and integration behavior.
+
+Coverage includes:
+
+* Authentication and authorization.
+* Invalid role rejection.
+* Requester/reviewer separation.
+* Supervisor routing.
+* Action-intent detection.
+* Investigation behavior.
+* RAG integration.
+* Read-only investigation guarantees.
+* Approval persistence.
+* Execution authorization.
+* Execution-before-approval blocking.
+* Execution history.
+* Audit lifecycle.
+* Audit filtering and pagination.
+* Cross-agent workflows.
+
+Run the suite with:
+
+```cmd
+python -m pytest tests/ -q
+```
+
+Current validated result:
+
+```text
+80 passed
+```
+
+**Evaluation**
+
+The repository also includes evaluation datasets and runners for:
+
+* Agent routing.
+* RAG retrieval.
+* Groundedness.
+* Judge-based groundedness checks.
+* Tool-health enrichment.
+
+Generated evaluation results are treated as runtime artifacts and are not committed to the repository.
+
+**Validated end-to-end workflow**
+
+The complete controlled-remediation path has been exercised through the Docker API:
+
+```text
+Incident
+   │
+   ▼
+Investigation
+   │
+   ▼
+Runbook + Monitoring Evidence
+   │
+   ▼
+Recommendation
+   │
+   ▼
+Explicit Action Request
+   │
+   ▼
+Pending Approval
+   │
+   ├── Early execution attempt → HTTP 403
+   │
+   ▼
+Separate Reviewer Approval
+   │
+   ▼
+Authorized Execution
+   │
+   ▼
+Simulated Executor
+   │
+   ▼
+Execution Record
+   │
+   ▼
+Audit Trail
+```
+
+During validation, an execution attempt while the approval was still `pending` returned HTTP `403`.
+
+After a separate authorized reviewer approved the request, the same action passed through the simulated executor and the execution was persisted successfully.
+
+That behavior is important to the project: the safety boundary is enforced by application logic rather than relying on the LLM to follow an instruction.
+
+**Current limitations / production hardening**
+
+This repository demonstrates the application architecture and control model. It is not presented as a fully deployed enterprise operations platform.
+
+For a production deployment, I would additionally add:
+
+* Enterprise OIDC/OAuth2 identity integration.
+* Signed JWT validation.
+* Managed relational database infrastructure.
+* Centralized secret management.
+* TLS termination.
+* Network-level service isolation.
+* Centralized metrics, logs, and alerting.
+* Distributed tracing.
+* Rate limiting.
+* Managed vector infrastructure where required.
+* Scoped production Airflow service identities.
+* Backup and disaster-recovery policies.
+* Centralized immutable audit storage.
+* Environment-specific policy enforcement.
+
+The local identity headers and simulated executor are deliberate development boundaries. They make it possible to test the complete governed workflow without providing an LLM or local development environment with production infrastructure access.
+
+**Why I built it this way**
+
+A lot of agent demos focus on whether the model can call a tool successfully.
+
+For operational systems, I think the harder problem is deciding what the model should be allowed to do after it has reasoned about an incident.
+
+This project therefore keeps several boundaries explicit:
+
+* Reasoning is not authorization.
+* A recommendation is not an action.
+* Investigation should remain read-only.
+* Sensitive operations need deterministic controls.
+* Human approval should exist outside model reasoning.
+* Operational state should not depend on conversation memory.
+* Every important action should be traceable.
+* Infrastructure integrations should be replaceable without redesigning the agent workflow.
+
+The goal is to explore how agentic AI can participate in real operational workflows while keeping execution controlled, testable, and auditable.
