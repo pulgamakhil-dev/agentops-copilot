@@ -74,161 +74,161 @@ AgentOps Copilot models this workflow as a governed multi-agent system instead o
 
 ```text
 
-&#x20;                        ┌───────────────────────┐
+                         ┌───────────────────────┐
 
-&#x20;                        │      Client / API     │
+                         │      Client / API     │
 
-&#x20;                        └───────────┬───────────┘
+                         └───────────┬───────────┘
 
-&#x20;                                    │
+                                     │
 
-&#x20;                                    ▼
+                                     ▼
 
-&#x20;                        ┌───────────────────────┐
+                         ┌───────────────────────┐
 
-&#x20;                        │      FastAPI Layer    │
+                         │      FastAPI Layer    │
 
-&#x20;                        │ Auth / Request Context│
+                         │ Auth / Request Context│
 
-&#x20;                        └───────────┬───────────┘
+                         └───────────┬───────────┘
 
-&#x20;                                    │
+                                     │
 
-&#x20;                                    ▼
+                                     ▼
 
-&#x20;                        ┌───────────────────────┐
+                         ┌───────────────────────┐
 
-&#x20;                        │      Supervisor       │
+                         │      Supervisor       │
 
-&#x20;                        │ Intent Classification │
+                         │ Intent Classification │
 
-&#x20;                        │   Agent Routing       │
+                         │   Agent Routing       │
 
-&#x20;                        └───────────┬───────────┘
+                         └───────────┬───────────┘
 
-&#x20;                                    │
+                                     │
 
-&#x20;            ┌───────────────────────┼───────────────────────┐
+             ┌───────────────────────┼───────────────────────┐
 
-&#x20;            │                       │                       │
+             │                       │                       │
 
-&#x20;            ▼                       ▼                       ▼
+             ▼                       ▼                       ▼
 
-&#x20;     ┌─────────────┐         ┌─────────────┐        ┌─────────────┐
+      ┌─────────────┐         ┌─────────────┐        ┌─────────────┐
 
-&#x20;     │ Monitoring  │         │     SQL     │        │     RAG     │
+      │ Monitoring  │         │     SQL     │        │     RAG     │
 
-&#x20;     │    Agent    │         │    Agent    │        │    Agent    │
+      │    Agent    │         │    Agent    │        │    Agent    │
 
-&#x20;     └──────┬──────┘         └──────┬──────┘        └──────┬──────┘
+      └──────┬──────┘         └──────┬──────┘        └──────┬──────┘
 
-&#x20;            │                       │                       │
+             │                       │                       │
 
-&#x20;            │                       │                FAISS / Runbooks
+             │                       │                FAISS / Runbooks
 
-&#x20;            │                       │                       │
+             │                       │                       │
 
-&#x20;            └──────────────┬────────┴───────────────────────┘
+             └──────────────┬────────┴───────────────────────┘
 
-&#x20;                           │
+                            │
 
-&#x20;                           ▼
+                            ▼
 
-&#x20;                 ┌─────────────────────┐
+                  ┌─────────────────────┐
 
-&#x20;                 │ Investigation Agent │
+                  │ Investigation Agent │
 
-&#x20;                 │ Evidence Synthesis  │
+                  │ Evidence Synthesis  │
 
-&#x20;                 │ Read-Only Boundary  │
+                  │ Read-Only Boundary  │
 
-&#x20;                 └──────────┬──────────┘
+                  └──────────┬──────────┘
 
-&#x20;                            │
+                             │
 
-&#x20;                            ▼
+                             ▼
 
-&#x20;                      Recommendation
+                       Recommendation
 
-&#x20;                            │
+                             │
 
-&#x20;                 Explicit action request
+                  Explicit action request
 
-&#x20;                            │
+                             │
 
-&#x20;                            ▼
+                             ▼
 
-&#x20;                   ┌────────────────┐
+                    ┌────────────────┐
 
-&#x20;                   │  Action Agent  │
+                    │  Action Agent  │
 
-&#x20;                   └───────┬────────┘
+                    └───────┬────────┘
 
-&#x20;                           │
+                            │
 
-&#x20;                           ▼
+                            ▼
 
-&#x20;                 ┌─────────────────────┐
+                  ┌─────────────────────┐
 
-&#x20;                 │ Approval Request    │
+                  │ Approval Request    │
 
-&#x20;                 │     PENDING         │
+                  │     PENDING         │
 
-&#x20;                 └──────────┬──────────┘
+                  └──────────┬──────────┘
 
-&#x20;                            │
+                             │
 
-&#x20;                     Human Reviewer
+                      Human Reviewer
 
-&#x20;                            │
+                             │
 
-&#x20;                            ▼
+                             ▼
 
-&#x20;                 ┌─────────────────────┐
+                  ┌─────────────────────┐
 
-&#x20;                 │ Authorization / RBAC│
+                  │ Authorization / RBAC│
 
-&#x20;                 └──────────┬──────────┘
+                  └──────────┬──────────┘
 
-&#x20;                            │
+                             │
 
-&#x20;                        APPROVED
+                         APPROVED
 
-&#x20;                            │
+                             │
 
-&#x20;                            ▼
+                             ▼
 
-&#x20;                 ┌─────────────────────┐
+                  ┌─────────────────────┐
 
-&#x20;                 │ Execution Service   │
+                  │ Execution Service   │
 
-&#x20;                 │ Executor Abstraction│
+                  │ Executor Abstraction│
 
-&#x20;                 └──────────┬──────────┘
+                  └──────────┬──────────┘
 
-&#x20;                            │
+                             │
 
-&#x20;                  ┌─────────┴─────────┐
+                   ┌─────────┴─────────┐
 
-&#x20;                  ▼                   ▼
+                   ▼                   ▼
 
-&#x20;            Simulated Executor   Airflow Executor
+             Simulated Executor   Airflow Executor
 
-&#x20;                                     │
+                                      │
 
-&#x20;                                     ▼
+                                      ▼
 
-&#x20;                             External Platform
+                              External Platform
 
 
 
-&#x20;         Approval + Execution + Audit State
+          Approval + Execution + Audit State
 
-&#x20;                      │
+                       │
 
-&#x20;                      ▼
+                       ▼
 
-&#x20;               SQLite / Persistence
+                SQLite / Persistence
 
 ```
 
@@ -442,31 +442,31 @@ Operational actions move through an explicit state transition:
 
 REQUEST
 
-&#x20;  │
+   │
 
-&#x20;  ▼
+   ▼
 
 PENDING APPROVAL
 
-&#x20;  │
+   │
 
-&#x20;  ├──────────────► REJECTED
+   ├──────────────► REJECTED
 
-&#x20;  │
+   │
 
-&#x20;  ▼
+   ▼
 
 APPROVED
 
-&#x20;  │
+   │
 
-&#x20;  ▼
+   ▼
 
 EXECUTION STARTED
 
-&#x20;  │
+   │
 
-&#x20;  ▼
+   ▼
 
 EXECUTION COMPLETED / FAILED
 
@@ -642,15 +642,15 @@ Example simulated result:
 
 {
 
-&#x20; "success": true,
+  "success": true,
 
-&#x20; "action\_name": "rerun\_pipeline",
+  "action\_name": "rerun\_pipeline",
 
-&#x20; "resource\_name": "customer\_ingestion",
+  "resource\_name": "customer\_ingestion",
 
-&#x20; "status": "simulated",
+  "status": "simulated",
 
-&#x20; "message": "Pipeline rerun simulated successfully for customer\_ingestion. No production action was executed."
+  "message": "Pipeline rerun simulated successfully for customer\_ingestion. No production action was executed."
 
 }
 
@@ -800,39 +800,39 @@ The ingestion pipeline:
 
 Runbooks
 
-&#x20;  │
+   │
 
-&#x20;  ▼
+   ▼
 
 Document Loading
 
-&#x20;  │
+   │
 
-&#x20;  ▼
+   ▼
 
 Chunking
 
-&#x20;  │
+   │
 
-&#x20;  ▼
+   ▼
 
 Embedding
 
-&#x20;  │
+   │
 
-&#x20;  ▼
+   ▼
 
 FAISS Index
 
-&#x20;  │
+   │
 
-&#x20;  ▼
+   ▼
 
 Semantic Retrieval
 
-&#x20;  │
+   │
 
-&#x20;  ▼
+   ▼
 
 Investigation Context
 
@@ -1040,75 +1040,75 @@ The project has been exercised through the live Docker API using the following w
 
 Incident Query
 
-&#x20;    │
+     │
 
-&#x20;    ▼
+     ▼
 
 Supervisor
 
-&#x20;    │
+     │
 
-&#x20;    ▼
+     ▼
 
 Investigation Agent
 
-&#x20;    │
+     │
 
-&#x20;    ├── Monitoring Evidence
+     ├── Monitoring Evidence
 
-&#x20;    │
+     │
 
-&#x20;    └── Runbook Retrieval
+     └── Runbook Retrieval
 
-&#x20;    │
+     │
 
-&#x20;    ▼
+     ▼
 
 Read-Only Recommendation
 
-&#x20;    │
+     │
 
-&#x20;    ▼
+     ▼
 
 Explicit Action Request
 
-&#x20;    │
+     │
 
-&#x20;    ▼
+     ▼
 
 Pending Approval
 
-&#x20;    │
+     │
 
-&#x20;    ├── Attempted early execution → HTTP 403
+     ├── Attempted early execution → HTTP 403
 
-&#x20;    │
+     │
 
-&#x20;    ▼
+     ▼
 
 Separate Reviewer Approval
 
-&#x20;    │
+     │
 
-&#x20;    ▼
+     ▼
 
 Authorized Execution
 
-&#x20;    │
+     │
 
-&#x20;    ▼
+     ▼
 
 Simulated Executor
 
-&#x20;    │
+     │
 
-&#x20;    ▼
+     ▼
 
 Execution Record
 
-&#x20;    │
+     │
 
-&#x20;    ▼
+     ▼
 
 Audit Trail
 
