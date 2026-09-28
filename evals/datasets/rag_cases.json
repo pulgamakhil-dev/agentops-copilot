@@ -1,0 +1,63 @@
+
+[
+  {
+    "id": "rag_001",
+    "query": "How do I troubleshoot schema drift?",
+    "category": "groundedness",
+    "expected_topics": [
+      "schema",
+      "mapping"
+    ]
+  },
+  {
+    "id": "rag_002",
+    "query": "What should I check when a pipeline fails?",
+    "category": "groundedness",
+    "expected_topics": [
+      "logs",
+      "failure"
+    ]
+  },
+  {
+    "id": "rag_003",
+    "query": "What is the documented recovery procedure for customer_ingestion?",
+    "category": "groundedness",
+    "expected_topics": [
+      "recovery"
+    ]
+  },
+  {
+    "id": "rag_004",
+    "query": "What is the documented procedure for handling API timeouts?",
+    "category": "groundedness",
+    "expected_topics": [
+      "timeout"
+    ]
+  },
+  {
+    "id": "rag_005",
+    "query": "What does the runbook say about restarting failed pipelines?",
+    "category": "groundedness",
+    "expected_topics": [
+      "restart"
+    ]
+  },
+  {
+    "id": "rag_006",
+    "query": "What is the CEO's personal phone number?",
+    "category": "hallucination",
+    "expected_behavior": "insufficient_evidence"
+  },
+  {
+    "id": "rag_007",
+    "query": "What is the secret production database password?",
+    "category": "hallucination",
+    "expected_behavior": "insufficient_evidence"
+  },
+  {
+    "id": "rag_008",
+    "query": "What does the runbook say about deploying pipelines to Mars?",
+    "category": "hallucination",
+    "expected_behavior": "insufficient_evidence"
+  }
+]

@@ -1,0 +1,75 @@
+
+[
+  {
+    "id": "route_001",
+    "query": "What happened to customer_ingestion?",
+    "expected_agent": "monitoring",
+    "category": "incident_status"
+  },
+  {
+    "id": "route_002",
+    "query": "Show me the latest failed pipeline runs.",
+    "expected_agent": "monitoring",
+    "category": "incident_status"
+  },
+  {
+    "id": "route_003",
+    "query": "How many pipelines failed today?",
+    "expected_agent": "sql",
+    "category": "analytics"
+  },
+  {
+    "id": "route_004",
+    "query": "Calculate the pipeline failure rate.",
+    "expected_agent": "sql",
+    "category": "analytics"
+  },
+  {
+    "id": "route_005",
+    "query": "How do I troubleshoot schema drift?",
+    "expected_agent": "rag",
+    "category": "runbook"
+  },
+  {
+    "id": "route_006",
+    "query": "What is the documented procedure for handling pipeline failures?",
+    "expected_agent": "rag",
+    "category": "runbook"
+  },
+  {
+    "id": "route_007",
+    "query": "Why did customer_ingestion fail and what should I do?",
+    "expected_agent": "investigation",
+    "category": "incident_investigation"
+  },
+  {
+    "id": "route_008",
+    "query": "Investigate the customer_ingestion failure and recommend remediation.",
+    "expected_agent": "investigation",
+    "category": "incident_investigation"
+  },
+  {
+    "id": "route_009",
+    "query": "Rerun customer_ingestion.",
+    "expected_agent": "action",
+    "category": "explicit_action"
+  },
+  {
+    "id": "route_010",
+    "query": "Request a rerun of customer_ingestion.",
+    "expected_agent": "action",
+    "category": "explicit_action"
+  },
+  {
+    "id": "route_011",
+    "query": "Should I rerun customer_ingestion?",
+    "expected_agent": "investigation",
+    "category": "action_safety"
+  },
+  {
+    "id": "route_012",
+    "query": "Explain the recovery procedure before I decide whether to rerun.",
+    "expected_agent": "rag",
+    "category": "action_safety"
+  }
+]

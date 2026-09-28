@@ -1,0 +1,43 @@
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: agentops-copilot
+
+    ports:
+      - "8000:8000"
+
+    env_file:
+      - .env
+
+    environment:
+      ENVIRONMENT: development
+      DEBUG: "false"
+
+      # Access Ollama running on the Windows host.
+      LLM_PROVIDER: ollama
+      LLM_BASE_URL: http://host.docker.internal:11434
+
+      # Prevent real operational actions during testing.
+      EXECUTOR_PROVIDER: simulated
+
+      # Store database and FAISS files persistently.
+      DATABASE_URL: sqlite:////app/storage/agentops.db
+      VECTOR_STORE_PATH: /app/storage/faiss
+
+      RUNBOOKS_PATH: /app/data/runbooks
+      SEED_DATA_PATH: /app/data/pipeline_runs.csv
+
+    volumes:
+      - agentops_storage:/app/storage
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    restart: unless-stopped
+
+volumes:
+  agentops_storage:

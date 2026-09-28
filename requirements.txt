@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+langchain
+langgraph
+langchain-community
+langchain-ollama
+faiss-cpu
+sentence-transformers
+sqlalchemy
+pandas
+streamlit
+python-dotenv
+langchain-huggingface
+langchain-text-splitters
+httpx
+pytest

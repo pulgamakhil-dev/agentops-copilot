@@ -1,0 +1,66 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Python virtual environments
+venv/
+.venv/
+env/
+
+# Python cache / compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Test / tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+*_logs.txt
+agent_logs.txt
+logs/
+
+# Generated runtime storage
+storage/
+app/storage/
+
+# FAISS generated indexes
+*.faiss
+*.pkl
+index.faiss
+index.pkl
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Build / package artifacts
+build/
+dist/
+*.egg-info/
+
+# Legacy root-level development tests
+/test_*.py
+
+# Generated evaluation outputs
+evals/results/
