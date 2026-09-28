@@ -68,7 +68,7 @@ AgentOps Copilot models this workflow as a governed multi-agent system instead o
 
 
 
-\## Architecture
+\ Architecture
 
 
 
@@ -238,11 +238,11 @@ AgentOps Copilot models this workflow as a governed multi-agent system instead o
 
 
 
-\## Agent Responsibilities
+\ Agent Responsibilities
 
 
 
-\### Supervisor
+\ Supervisor
 
 
 
@@ -342,7 +342,7 @@ The RAG layer provides evidence to the reasoning workflow rather than treating r
 
 
 
-\### Investigation Agent
+\Investigation Agent
 
 
 
@@ -378,7 +378,7 @@ The optimized investigation path performs direct runbook retrieval followed by a
 
 
 
-\### Action Agent
+\ Action Agent
 
 
 
@@ -430,7 +430,7 @@ enters the controlled action workflow.
 
 
 
-\## Governed Action Lifecycle
+\ Governed Action Lifecycle
 
 
 
@@ -490,7 +490,7 @@ The model therefore cannot bypass the approval workflow by generating different 
 
 
 
-\## Human-in-the-Loop Approval
+\ Human-in-the-Loop Approval
 
 
 
@@ -666,7 +666,7 @@ This boundary makes it possible to test agent behavior, approval logic, RBAC, pe
 
 
 
-\## Auditability
+\ Auditability
 
 
 
@@ -848,7 +848,7 @@ Generated FAISS artifacts are intentionally excluded from source control and can
 
 
 
-\## Evaluation
+\ Evaluation
 
 
 
@@ -916,7 +916,7 @@ Major coverage areas include:
 
 
 
-\### Security
+\ Security
 
 
 
@@ -954,7 +954,7 @@ Major coverage areas include:
 
 
 
-\### Approval \& Execution
+\ Approval \& Execution
 
 
 
@@ -992,7 +992,7 @@ Major coverage areas include:
 
 
 
-\### End-to-End Workflow
+\ End-to-End Workflow
 
 
 
@@ -1028,7 +1028,7 @@ Current validated result:
 
 
 
-\## Validated End-to-End Scenario
+\ Validated End-to-End Scenario
 
 
 
@@ -1128,7 +1128,7 @@ After approval by a separate authorized reviewer, the same action was successful
 
 
 
-\## Technology Stack
+\ Technology Stack
 
 
 
@@ -1168,7 +1168,7 @@ After approval by a separate authorized reviewer, the same action was successful
 
 
 
-\## Repository Structure
+\ Repository Structure
 
 
 
@@ -1306,7 +1306,7 @@ agentops\_copilot/
 
 
 
-\## Local Development
+\ Local Development
 
 
 
@@ -1432,7 +1432,7 @@ FastAPI's generated API documentation is available through the application while
 
 
 
-\## Docker Runtime
+\ Docker Runtime
 
 
 
@@ -1526,7 +1526,7 @@ Infrastructure integrations sit behind executor abstractions.
 
 
 
-\## Production Hardening
+\ Production Hardening
 
 
 
@@ -1572,7 +1572,7 @@ The local header-based authentication and simulated executor are deliberate deve
 
 
 
-\## Design Principles
+\ Design Principles
 
 
 
@@ -1600,7 +1600,7 @@ These boundaries allow agentic systems to participate in operational workflows w
 
 
 
-\## Current Status
+\ Current Status
 
 
 
@@ -1662,7 +1662,7 @@ Implemented and validated:
 
 
 
-\## Disclaimer
+\ Disclaimer
 
 
 
