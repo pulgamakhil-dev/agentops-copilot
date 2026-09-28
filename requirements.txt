@@ -14,3 +14,4 @@ langchain-huggingface
 langchain-text-splitters
 httpx
 pytest
+alembic==1.19.2
