@@ -9,7 +9,7 @@ The main idea behind the project is simple: an LLM can help investigate an incid
 Operational actions therefore go through deterministic authorization, human approval, execution, persistence, and auditing outside the LLM.
 
 **What it does**
-1231
+
 * Investigates failed data pipelines using runtime evidence.
 * Routes requests to specialized agents instead of giving one agent access to every tool.
 * Uses FAISS-based RAG to retrieve relevant operational runbooks.
